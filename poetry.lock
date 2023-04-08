@@ -1,0 +1,33 @@
+[[package]]
+name = "pypcap"
+version = "1.3.0"
+description = "pypcap -- Python interface to pcap a packet capture library"
+category = "main"
+optional = false
+python-versions = "*"
+
+[[package]]
+name = "scapy"
+version = "2.5.0"
+description = "Scapy: interactive packet manipulation tool"
+category = "main"
+optional = false
+python-versions = ">=2.7, !=3.0.*, !=3.1.*, !=3.2.*, !=3.3.*, <4"
+
+[package.extras]
+basic = ["ipython"]
+complete = ["cryptography (>=2.0)", "ipython", "matplotlib", "pyx"]
+docs = ["sphinx (>=3.0.0)", "sphinx_rtd_theme (>=0.4.3)", "tox (>=3.0.0)"]
+
+[metadata]
+lock-version = "1.1"
+python-versions = "^3.9"
+content-hash = "86aae7ed33851c243d14b73b9d6b771b35187530f0ac28340c720721a846a5f7"
+
+[metadata.files]
+pypcap = [
+    {file = "pypcap-1.3.0.tar.gz", hash = "sha256:669976786b2b4c43869c0ecf6228cbbb70336d1d8eb8d4fe2a3a81df395f45b5"},
+]
+scapy = [
+    {file = "scapy-2.5.0.tar.gz", hash = "sha256:5b260c2b754fd8d409ba83ee7aee294ecdbb2c235f9f78fe90bc11cb6e5debc2"},
+]
