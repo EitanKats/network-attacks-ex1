@@ -1,4 +1,5 @@
 from scapy.all import *
+from scapy.layers.l2 import ARP, Ether
 
 
 def scan_networks():
