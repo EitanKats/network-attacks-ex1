@@ -40,10 +40,10 @@ var options = {
 };
 
 // Create an HTTP service.
-http.createServer(app).listen(8080, ()=>{
+http.createServer(app).listen(port, ()=>{
   console.log(`HTTP listening on ${port}`)
 });
 // Create an HTTPS service identical to the HTTP service.
-https.createServer(options, app).listen(8443, ()=>{
+https.createServer(options, app).listen(portHTTPS, ()=>{
   console.log(`HTTPS listening on ${portHTTPS}`)
 });
