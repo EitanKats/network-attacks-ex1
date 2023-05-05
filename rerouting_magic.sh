@@ -47,7 +47,7 @@ echo  "
 DHCPDv4_CONF=/etc/dhcp/dhcpd.conf
 DHCPDv4_PID=/var/run/dhcpd.pid
 INTERFACESv4=\"$ATTACK_INTERFACE\"
-" > sudo tee /etc/default/isc-dhcp-server
+" | sudo tee /etc/default/isc-dhcp-server
 
 # Path: /etc/dhcp/dhcpd.conf
 cp /etc/dhcp/dhcpd.conf /etc/dhcp/dhcpd.conf.bak
@@ -57,7 +57,7 @@ subnet 10.100.102.0 netmask 255.255.255.0 {
   range 10.100.102.51 10.100.102.100;
   option domain-name-servers 8.8.4.4, 8.8.8.8;
   option routers 10.100.102.50;
-}" > sudo tee /etc/dhcp/dhcpd.conf
+}" | sudo tee /etc/dhcp/dhcpd.conf
 
 
 # Path: /etc/hostapd/hostapd.conf
@@ -75,7 +75,7 @@ wpa=2
 wpa_key_mgmt=WPA-PSK
 wpa_pairwise=TKIP
 rsn_pairwise=CCMP
-" > sudo tee /etc/hostapd/hostapd.conf ## uncomment wpa_passphrase if you wish to set a password
+" | sudo tee /etc/hostapd/hostapd.conf ## uncomment wpa_passphrase if you wish to set a password
 
 # Path: /etc/default/hostapd
 cp /etc/default/hostapd /etc/default/hostapd.bak
@@ -100,6 +100,7 @@ log "starting hostapd and isc-dhcp-server"
 service hostapd restart
 service isc-dhcp-server restart
 
+log "starting node server"
 npm run dev &
 
 log "configuring iptables"
