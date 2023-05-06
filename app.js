@@ -32,6 +32,9 @@ app.post('/data', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', '/response.html'));
 })
 
+app.get('*', (req, res) => {
+  res.redirect('/')
+})
 
 // This line is from the Node.js HTTPS documentation.
 var options = {
