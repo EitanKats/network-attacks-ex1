@@ -58,7 +58,7 @@ def print_APs():
     while isPrinting:
         os.system("clear")
         logger.info("Start scanning networks...")
-        logger.info(networks)
+        print(networks)
         time.sleep(0.5)
 
 

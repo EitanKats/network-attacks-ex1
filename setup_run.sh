@@ -5,6 +5,16 @@ print_usage(){
     echo "Example: sudo ./setup_run.sh --attack wlan0 --net eth0 --fake-ap wlan1"
 }
 
+print_banner(){
+  echo "
+ _____       _ _   _____          _       
+| ____|_   _(_) | |_   _|_      _(_)_ __  
+|  _| \ \ / / | |   | | \ \ /\ / / | '_ \ 
+| |___ \ V /| | |   | |  \ V  V /| | | | |
+|_____| \_/ |_|_|   |_|   \_/\_/ |_|_| |_|  by Eitan and Elad
+              "
+}
+
 while [ "$1" != "" ]; do
     case $1 in
         --attack )              shift
@@ -30,6 +40,8 @@ if [ "$EUID" -ne 0 ] ; then
   echo "Please run as root"
   exit 1
 fi
+
+print_banner
 
 apt install build-essential zlib1g-dev hostapd isc-dhcp-server libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev wget nodejs python3 -y > /dev/null 2>&1
 npm install > /dev/null 2>&1
