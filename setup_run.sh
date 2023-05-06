@@ -18,16 +18,18 @@ fi
 
 export ATTACK_INTERFACE
 
-echo "check if we have all the dependencies"
-apt install build-essential zlib1g-dev libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev wget nodejs python3 -y > /dev/null 2>&1
-
+apt install build-essential zlib1g-dev hostapd isc-dhcp-server libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev wget nodejs python3 -y > /dev/null 2>&1
+npm install > /dev/null 2>&1
 
 sudo service NetworkManager stop
-sudo rfkill unblock wifi; sudo rfkill unblock all; sudo ifconfig $ATTACK_INTERFACE up
+service hostapd stop # for the attack to scan only valid APs
+service isc-dhcp-server stop
+sudo rfkill unblock wifi; sudo rfkill unblock all; sudo ifconfig $ATTACK_INTERFACE up # incase the interface is blocked by rfkill
 sudo ifconfig $ATTACK_INTERFACE down
 sudo iwconfig $ATTACK_INTERFACE mode monitor
 sudo ifconfig $ATTACK_INTERFACE up
 
-echo "interface $ATTACK_INTERFACE is ready for attack"
+set -e errexit
+
 source venv/bin/activate
 ./venv/bin/python3 scanner.py

