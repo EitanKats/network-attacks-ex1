@@ -132,7 +132,7 @@ if __name__ == "__main__":
     isSniffing = False # for the change_channel thread
 
     
-    # os.system(f"./rerouting_magic.sh --ssid {ssid_to_scan}")
+    os.system(f"./rerouting_magic.sh --ssid {ssid_to_scan}")
 
     # start the thread that prints all the connected clients
     printer = Thread(target=check_for_connection)
