@@ -14,18 +14,20 @@ mac_ap_mapping = {}
 interface = sys.argv[1]
 deauth_time = []
 my_mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,8*6,8)][::-1])
-wifi_bssid = run(f"iwconfig {interface} | grep \"Access Point:\"", capture_output=True, shell=True, text=True).stdout.split()[5][-1]
+# wifi_bssid = run(f"iwconfig {interface} | grep \"Access Point:\"", capture_output=True, shell=True, text=True).stdout.split()[5][-1]
 
-if not wifi_bssid:
-    print("No wifi bssid found")
-    sys.exit(1)
+under_attack = 0
+
+# if not wifi_bssid:
+#     print("No wifi bssid found")
+#     sys.exit(1)
 
 def simple_compute():
-    # compute if my mac is under attack 
+    # compute if my mac is under attack
     # by checking intervals between deauth packets and more
     # if it is under attack, ingore it in kernel level with iptables
     # and check if the attacker is still trying to attack, if not - remove the iptables rule
-    
+
     while True:
         for ap_key, ap_clients in mac_ap_mapping.items():
             for client, deauth_timestamps in ap_clients.items():

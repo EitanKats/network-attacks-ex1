@@ -99,6 +99,8 @@ service isc-dhcp-server restart
 
 log "configuring iptables"
 iptables --table nat --flush
+# NET_IP='127.0.0.1'
+# NET_INTERFACE='lo'
 iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p udp --dport 80 -j DNAT --to-destination $NET_IP:8000
 iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p udp --dport 443 -j DNAT --to-destination $NET_IP:8443
 iptables -t nat -A PREROUTING -i $FAKE_AP_INTERFACE -p tcp --dport 80 -j DNAT --to-destination $NET_IP:8000
