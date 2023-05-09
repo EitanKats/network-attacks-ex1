@@ -215,3 +215,5 @@ if __name__ == "__main__":
     if result:
         print(result)
     # pdb.set_trace()
+    # remove captive_portal/nohup.out
+    os.system("rm -f captive_portal/nohup.out")

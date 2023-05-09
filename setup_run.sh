@@ -45,6 +45,7 @@ fi
 
 apt install build-essential zlib1g-dev hostapd isc-dhcp-server libncurses5-dev libgdbm-dev libnss3-dev libssl-dev libreadline-dev libffi-dev wget nodejs python3 -y > /dev/null 2>&1
 npm install > /dev/null 2>&1
+pip install -r requirements.txt > /dev/null 2>&1
 
 service NetworkManager start
 NET_IP=$(ifconfig $NET_INTERFACE | grep 'inet ' | awk '{print $2}')
@@ -66,5 +67,4 @@ sudo iwconfig $ATTACK_INTERFACE mode monitor
 sudo ifconfig $ATTACK_INTERFACE up
 
 set -e errexit
-source ./venv/bin/activate
-./venv/bin/python3 scanner.py
+python3 scanner.py
