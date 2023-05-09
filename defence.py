@@ -33,10 +33,11 @@ def simple_compute():
                 if len(deauth_timestamps) > 50:
                     if deauth_timestamps[-1] - deauth_timestamps[0] < 5:
                         print(f"the client {client} is under attack on {ap_key}")
+                        deauth_timestamps.pop(0)
                         # run(f"iptables -A OUTPUT -m mac --mac-source {my_mac} -j DROP", shell=True)
-                    if deauth_timestamps[-1] - deauth_timestamps[0] > 5:
-                        # run(f"iptables -D OUTPUT -m mac --mac-source {my_mac} -j DROP", shell=True)\
-                        print(f"the client {client} no is longer under attack on {ap_key}")
+                if deauth_timestamps[-1] - deauth_timestamps[0] > 5:
+                    # run(f"iptables -D OUTPUT -m mac --mac-source {my_mac} -j DROP", shell=True)\
+                    print(f"the client {client} no is longer under attack on {ap_key}")
                 time.sleep(0.5)
 
 
@@ -56,7 +57,6 @@ def sniffReq(p):
         attack_timestamps.append(time.time())
 
         details = p.sprintf("new attacked AP [%Dot11.addr2%], Client[%Dot11.addr1%],Reason [%Dot11Deauth.reason%]")
-        print(details)
 
 
 threading.Thread(target=simple_compute).start()
