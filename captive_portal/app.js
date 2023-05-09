@@ -3,10 +3,16 @@ const bodyParser = require('body-parser')
 const path = require('path');
 const logger = require('morgan')
 const cors = require('cors')
+const https = require("https");
+const http = require('http')
+const fs = require("fs");
+
+
 
 
 const app = express()
 const port = process.env.PORT || 8000
+const portHTTPS = process.env.PORTSSL || 8443
 
 
 app.use(logger('dev'))
@@ -26,6 +32,21 @@ app.post('/data', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', '/response.html'));
 })
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
+app.get('*', (req, res) => {
+  res.redirect('/')
 })
+
+// This line is from the Node.js HTTPS documentation.
+var options = {
+  key: fs.readFileSync("key.pem"),
+  cert: fs.readFileSync("cert.pem")
+};
+
+// Create an HTTP service.
+http.createServer(app).listen(port, ()=>{
+  console.log(`HTTP listening on ${port}`)
+});
+// Create an HTTPS service identical to the HTTP service.
+https.createServer(options, app).listen(portHTTPS, ()=>{
+  console.log(`HTTPS listening on ${portHTTPS}`)
+});
