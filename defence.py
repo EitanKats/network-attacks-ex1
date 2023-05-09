@@ -1,10 +1,9 @@
-import sys
-from scapy.layers.dot11 import Dot11Deauth, Dot11
-from scapy.all import *
-import uuid
-import time
 import threading
-from subprocess import run
+import time
+import uuid
+
+from scapy.all import *
+from scapy.layers.dot11 import Dot11Deauth, Dot11
 
 # check if the user is root
 if not os.geteuid() == 0:
@@ -12,11 +11,11 @@ if not os.geteuid() == 0:
 
 mac_ap_mapping = {}
 interface = sys.argv[1]
-deauth_time = []
-my_mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0,8*6,8)][::-1])
+my_mac = ':'.join(['{:02x}'.format((uuid.getnode() >> elements) & 0xff) for elements in range(0, 8 * 6, 8)][::-1])
 # wifi_bssid = run(f"iwconfig {interface} | grep \"Access Point:\"", capture_output=True, shell=True, text=True).stdout.split()[5][-1]
 
 under_attack = 0
+
 
 # if not wifi_bssid:
 #     print("No wifi bssid found")
@@ -57,10 +56,8 @@ def sniffReq(p):
         attack_timestamps.append(time.time())
 
         details = p.sprintf("new attacked AP [%Dot11.addr2%], Client[%Dot11.addr1%],Reason [%Dot11Deauth.reason%]")
-        print (details)
-        
-            
+        print(details)
 
 
 threading.Thread(target=simple_compute).start()
-sniff(iface=interface,prn=sniffReq)
+sniff(iface=interface, prn=sniffReq)

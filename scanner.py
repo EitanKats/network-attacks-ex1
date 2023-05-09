@@ -1,12 +1,9 @@
 from scapy.all import *
 from scapy.layers.dot11 import Dot11Beacon, Dot11, Dot11Elt, RadioTap, Dot11Deauth
-from scapy.layers.l2 import Ether
-from scapy.layers.inet import IP
 from scapy.config import conf
 from threading import Thread
 import pandas
 import time
-import pdb
 import os
 from loguru import logger
 from subprocess import run
@@ -213,8 +210,6 @@ if __name__ == "__main__":
     deauth_target(target_mac, bssid_to_scan)
 
     check_fake_ap_connections = False
-
-    # TODO: print the ap password
 
     result = read_nohup_output()
     if result:
