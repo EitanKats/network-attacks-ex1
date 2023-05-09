@@ -12,6 +12,13 @@ Evil twin attack is a type of Wi-Fi attack where the attacker sets up a fake acc
 ```
 The script is intended to be run with superuser privileges (via the "sudo" command) and provides an example of how to use it with sample arguments. It is important to note that the usage of this tool for evil purposes is illegal and unethical.
 
+Tool execution:
+
+```
+sudo ./setup_run.sh --attack wlxc83a35c2e0bb --net wlx000d81a2312d --fake-ap wlp0s20f3
+```
+
+
 ## Defence/Detection tool
 
 How to run the defence tool, it is important to provide the name of the interface that will be used to identify attacks:
